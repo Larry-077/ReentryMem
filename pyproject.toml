@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reentrymem"
+version = "0.1.0"
+description = "Inference for dynamic entity re-entry in video world models"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+dependencies = [
+  "torch>=2.5.1,<3", "diffusers>=0.30.1,<0.37", "transformers>=4.44,<5",
+  "huggingface_hub>=0.34,<2", "safetensors>=0.4.5", "numpy>=1.26,<3",
+  "scipy>=1.11", "einops>=0.8", "ftfy>=6", "regex", "sentencepiece>=0.2",
+  "protobuf>=4", "Pillow>=10", "av>=12,<17",
+]
+
+[project.scripts]
+reentrymem = "reentrymem.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["reentrymem*"]
+
+[tool.setuptools.package-data]
+reentrymem = ["configs/*.json"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

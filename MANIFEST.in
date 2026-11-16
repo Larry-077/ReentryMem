@@ -1,0 +1,4 @@
+include README.md LICENSE NOTICE requirements.txt infer.py
+recursive-include tools *.py
+recursive-include examples *.json
+recursive-include tests *.py

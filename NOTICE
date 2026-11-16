@@ -1,0 +1,18 @@
+ReentryMem inference release
+
+Wan inference modules derive from Wan2.2 and the BiWM camera-conditioned snapshot.
+Copyright 2024-2025 The Alibaba Wan Team Authors. All rights reserved.
+Wan2.2: https://github.com/Wan-Video/Wan2.2
+BiWM: https://github.com/LynnReal-AI/BiWM
+These components are distributed under Apache-2.0; see LICENSE.
+
+The overshoot-and-re-noise numerical update follows AMO Sampler:
+Hu et al., AMO Sampler: Enhancing Text Rendering with Overshooting, CVPR 2025.
+https://arxiv.org/abs/2411.19415
+https://github.com/hxixixh/amo-release
+ReentryMem supplies calibrated video-entity support and its presence-aware gating.
+
+Changes in this inference snapshot: keep camera-text conditioning and checkpoint
+parameter names; remove training launchers, optimizers, dataset caches, auxiliary
+losses, intervention experiments and memory-module execution. Add standalone
+condition-video inference, subject-region sampling and model-release tools.
