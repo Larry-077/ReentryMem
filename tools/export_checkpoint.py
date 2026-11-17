@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+from string import Template
 from reentrymem.checkpoints import (
     CONFIG_KEYS,
     MODEL_DEFAULTS,
@@ -70,38 +71,9 @@ def main():
         weights="merged DiT with camera-conditioning parameters",
     )
     (dest / "inference_config.json").write_text(json.dumps(runtime, indent=2) + "\n")
-    card = f"""---
-license: apache-2.0
-base_model: Wan-AI/Wan2.2-TI2V-5B
-library_name: pytorch
-tags:
-- video-generation
-- video-to-video
-- world-model
-- reentrymem
----
-
-# {a.name}
-
-Inference checkpoint for **Out of View, Still in Motion: Dynamic Entity Re-entry in Video World Models**.
-
-Inference code: [Larry-077/ReentryMem](https://github.com/Larry-077/ReentryMem).
-
-This bundle contains the merged BF16 DiT and camera-conditioning parameters at step {a.step}.
-Variant: `{a.variant}`. It contains no optimizer state or training dataset.
-The Wan2.2 text encoder, tokenizer and VAE are downloaded separately from the base model.
-
-Use the accompanying ReentryMem inference repository. This is a custom camera-conditioned
-model, not an unmodified Diffusers video pipeline. `localized` and `euler` use the same weights;
-`localized` enables calibrated entity-region sampling. Default generation uses 77 observed
-and 76 future RGB frames, 832x480, 15fps, 50 steps and CFG5. It requires no future RGB or masks.
-
-This bundle uses the `{a.variant}` checkpoint for the paper's virtual-scene re-entry task.
-This is the complete trained transformer with camera-conditioning parameters.
-Use one entity phrase from the caption with the single-entity model.
-
-Files are verified by `checksums.json`. See `LICENSE` and `NOTICE` for upstream attribution.
-"""
+    card = Template((release / "docs/MODEL_CARD.md").read_text()).substitute(
+        model_name=a.name, variant=a.variant, checkpoint_step=a.step
+    )
     (dest / "README.md").write_text(card)
     manifest = {"schema_version": 1, "files": {}}
     for f in sorted(dest.iterdir()):

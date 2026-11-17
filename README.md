@@ -1,38 +1,69 @@
-# ReentryMem
+<h1 align="center">ReentryMem</h1>
 
-**Out of View, Still in Motion: Dynamic Entity Re-entry in Video World Models**
+<p align="center">
+  <strong>Out of View, Still in Motion:<br>Dynamic Entity Re-entry in Video World Models</strong>
+</p>
 
-ReentryMem improves entity re-entry in camera-controlled video generation. It reads entity regions from text cross-attention and uses them to localize sampling correction. This repository contains inference code, calibrated region settings, and checkpoint export tools.
+<p align="center">
+  <a href="https://reentrymem-project.pages.dev/">🌐 Project Page</a> &nbsp;|&nbsp;
+  <a href="https://huggingface.co/larry077/ReentryMem">🤗 Model</a> &nbsp;|&nbsp;
+  <a href="LICENSE">License</a>
+</p>
 
+ReentryMem is a self-localized framework for dynamic entity re-entry in video world models. It reads entity regions directly from noisy video latents and uses the same localization mechanism to guide training and sampling, improving recovery when a moving subject leaves the camera's view and later returns.
 
+This repository provides inference code and the trained single-entity **Wan2.2-TI2V-5B** checkpoint.
+
+## Demo
 
 https://github.com/user-attachments/assets/528da459-6a8b-41cf-b3ea-e98fd0a738e4
 
+Visit the [project page](https://reentrymem-project.pages.dev/) for the method, synchronized comparisons, and more qualitative results.
 
+## Method
 
-## Setup
+![ReentryMem method overview](assets/method-overview.png)
 
-Use Python 3.10 or later with a CUDA-enabled PyTorch installation.
+ReentryMem connects three components:
+
+1. **Self-localized entity regions.** Text cross-attention provides separate signals for entity presence and spatial shape during denoising.
+2. **Entity-weighted training.** The predicted regions emphasize the entity in the flow-matching objective.
+3. **Localized sampling.** Overshooting and re-noising correct the predicted entity region while the background follows the standard Euler update.
+
+The localization mechanism operates on noisy latents without intermediate RGB decoding or an external segmentation model. Ordinary Euler sampling and localized sampling use the **same trained checkpoint**.
+
+## Results
+
+The controlled comparison reported on the [project page](https://reentrymem-project.pages.dev/#comparisons):
+
+| Method | Rea-Score (%) ↑ | SC ↑ | TCM ↑ |
+|---|---:|---:|---:|
+| Baseline | 96.1 | 0.8204 | 0.9154 |
+| ReentryMem-Train | 99.2 | 0.8380 | 0.9231 |
+| **ReentryMem** | 97.2 | 0.8378 | 0.9318 |
+
+Rea-Score measures entity reappearance, SC measures subject consistency, and TCM measures temporal consistency match. ReentryMem-Train uses Euler sampling; ReentryMem adds localized sampling to the same weights. See the project page for the evaluation protocol and comparisons with other world models.
+
+## Quick Start
+
+### Installation
+
+Use Python 3.10 or later with CUDA-enabled PyTorch. FlashAttention is optional; fused PyTorch attention is used when it is unavailable.
 
 ```bash
+git clone https://github.com/Larry-077/ReentryMem.git
+cd ReentryMem
+
 conda create -n reentrymem python=3.11 -y
 conda activate reentrymem
 pip install -r requirements.txt
 ```
 
-FlashAttention is optional. Without it, CUDA inference uses fused PyTorch attention. CPU execution is provided for tests and input validation.
+### Download the model
 
-## Models
-
-We release one single-entity checkpoint, trained to step **1496**. It contains the complete merged BF16 diffusion transformer and camera-conditioning parameters (5.01B parameters, approximately 10 GB). Both ordinary Euler sampling and localized sampling use this checkpoint.
-
-The tokenizer, text encoder, and VAE come from the Wan2.2 base model:
-
-```bash
-python tools/download_models.py
-```
-
-The single-entity checkpoint is available at [larry077/ReentryMem](https://huggingface.co/larry077/ReentryMem). Download the bundle:
+| Model | Backbone | Precision | Resolution | Download |
+|---|---|---|---|---|
+| ReentryMem | Wan2.2-TI2V-5B | BF16 | 832×480 | [Hugging Face](https://huggingface.co/larry077/ReentryMem) |
 
 ```bash
 python tools/download_models.py \
@@ -40,13 +71,13 @@ python tools/download_models.py \
   --checkpoint-dir checkpoints/ReentryMem
 ```
 
-You can also export an existing checkpoint as described below. The source repository does not contain model weights.
+This downloads the complete ReentryMem DiT checkpoint and the tokenizer, text encoder, and VAE from the official Wan2.2 base model.
 
-## Inference
+### Generate a continuation
 
-Each input contains a 77-frame observed video at 15 fps, a caption, entity phrases, and planned camera controls. Generation produces 76 future frames at 832×480. Entity phrases must occur in the caption. No future RGB frames or target masks are supplied to the model.
+Provide a **77-frame observed clip at 15 fps**, a caption, the subject phrase to track, and planned camera controls. The subject phrase must occur in the caption. Generation produces **76 future frames at 832×480**.
 
-Create a case from your observed video:
+Create an input case with a turn-and-return camera preset:
 
 ```bash
 python tools/create_case.py \
@@ -57,7 +88,7 @@ python tools/create_case.py \
   --output examples/case.json
 ```
 
-For existing planned camera poses, use `--camera-json camera.json` in place of `--preset`. Alternatively, `--actions-json actions.json` accepts 39 integer labels: 20 observed and 19 generated latent frames. The label is `translation * 9 + rotation`; each component has nine actions, including stationary.
+Run inference on a CUDA GPU:
 
 ```bash
 python infer.py \
@@ -67,94 +98,32 @@ python infer.py \
   --output-dir outputs/demo
 ```
 
-Defaults match the main inference setup: 50 steps, CFG 5, sigma shift 5, generation seed 42, correction seed 0, correction strength 8, and noise gate 0.92. `--sampler euler` uses the same weights with ordinary sampling. `--save-masks` additionally saves the entity-region fields.
+Outputs are `video.mp4` (observed prefix and continuation), `continuation.mp4` (generated segment), and `receipt.json` (settings and runtime measurements).
 
-Outputs are `video.mp4` with the observed prefix and continuation, `continuation.mp4` with the generated segment, and `receipt.json` with the settings and runtime measurements.
+<details>
+<summary>Camera controls and sampling options</summary>
 
-```bash
-python infer.py \
-  --case examples/case.json \
-  --checkpoint checkpoints/ReentryMem \
-  --base-model pretrained/Wan2.2-TI2V-5B \
-  --dry-run --verify-checkpoint
-```
+Use `--camera-json camera.json` instead of `--preset` for planned camera-to-world poses, or `--actions-json actions.json` for 39 latent-frame action labels. Each label is `translation * 9 + rotation`, with nine translation and nine rotation actions.
 
-The released checkpoint is trained for single-entity re-entry. Set `subjects` to the entity phrase to track in the caption.
+| Option | Behavior |
+|---|---|
+| `--sampler localized` | Default ReentryMem sampling |
+| `--sampler euler` | Ordinary sampling with the same checkpoint |
+| `--save-masks` | Save the entity-region fields |
+| `--dry-run --verify-checkpoint` | Check the case manifest, model files, and checksums without generation |
 
-## Validation
+Defaults are 50 steps, CFG 5, sigma shift 5, generation seed 42, correction seed 0, correction strength 8, and noise gate 0.92. See [the example case](examples/case.example.json) for the input schema.
 
-The CPU tests cover input contracts, dense and causal model forwards, entity-attention hooks, mixed precision, localized updates, and video I/O. The released checkpoint's 829 tensor names and shapes match the inference model, and strict loading of the full weights has passed on CPU. A tiny forward pass with the full trained weights and calibrated region hooks has also passed using synthetic text embeddings. Bundle checksums and CLI preflight have passed.
+</details>
 
-Full-resolution CUDA generation has not yet been verified for this standalone release. On a CUDA machine, run the inference command above with a real observed clip; successful generation should produce `video.mp4`, `continuation.mp4`, and `receipt.json`.
-
-## Checkpoint export and Hugging Face
-
-Export a model folder without optimizer state or training data:
-
-```bash
-python tools/export_checkpoint.py \
-  --checkpoint /path/to/checkpoint \
-  --output-dir /path/to/ReentryMem-model \
-  --name ReentryMem --variant single-entity --step 1496
-```
-
-The bundle contains the merged transformer, architecture configuration, calibrated regions, inference defaults, model card, license, and SHA256 checksums. `--hardlink` can stage the weights locally without an additional copy; exported linked weights must remain unchanged.
-
-Create a Hugging Face token with write access, then sign in and check the bundle without uploading:
-
-```bash
-hf auth login
-hf auth whoami
-python tools/upload_weights.py \
-  --bundle /path/to/ReentryMem-model \
-  --repo-id larry077/ReentryMem --dry-run
-```
-
-Upload the same single-entity bundle:
-
-```bash
-python tools/upload_weights.py \
-  --bundle /path/to/ReentryMem-model \
-  --repo-id larry077/ReentryMem --public
-```
-
-The upload starts in a new or private model repository and makes it public after remote file sizes and hashes match the bundle. Temporary connection errors are retried, checking for a successful commit before uploading again. Use the same command to resume an interrupted upload; a matching public repository is accepted as already published. Weights and source code are published separately. Sign in to the `larry077` account when publishing this model.
-
-## Publish to GitHub
-
-Install [GitHub CLI](https://cli.github.com/) if needed, then run these commands from this directory:
-
-```bash
-git add README.md .gitignore assets/video-poster.jpg ReentryMem-final.mp4 \
-  tools/export_checkpoint.py tools/upload_weights.py tests/test_upload.py
-git commit -m "Prepare single-entity release and project video"
-gh auth login --hostname github.com --git-protocol https --web
-python tools/publish_github.py --check-auth
-python tools/publish_github.py --owner Larry-077
-```
-
-Sign in to the `Larry-077` account. This creates the public [Larry-077/ReentryMem](https://github.com/Larry-077/ReentryMem) repository and pushes `main`. The script expects the repository name to be unused. For later source updates, commit the changes and run `git push`.
-
-The README video cover links to the full MP4 included in the repository. The video is approximately 58.5 MB, below GitHub's 100 MiB file limit; push it with Git rather than the browser file uploader. See [GitHub's file size limits](https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github).
-
-For an inline player in the README, upload a video attachment through GitHub's web editor and replace the video cover block with the generated attachment URL. Use a version smaller than 10 MB for free GitHub accounts. See [GitHub's attachment documentation](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files).
-
-## Source layout
-
-```text
-infer.py                    Inference entry point
-reentrymem/pipeline.py       Video continuation and denoising
-reentrymem/regions.py        Entity attention and region extraction
-reentrymem/sampling.py       Localized sampling correction
-reentrymem/modules/          Backbone, text encoder, and VAE
-tools/                      Input preparation and model publishing
-tests/                      CPU contract and numerical checks
-```
+## Development
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-## Acknowledgments
+See [maintenance notes](docs/MAINTAINING.md) for checkpoint export, model-card updates, release tools, and the standalone release's validation status.
 
-The backbone and camera-conditioning code build on [Wan2.2](https://github.com/Wan-Video/Wan2.2) and [BiWM](https://github.com/LynnReal-AI/BiWM). Upstream attribution and sampling provenance are preserved in [NOTICE](NOTICE). The code is distributed under Apache-2.0.
+## License and Acknowledgments
+
+Code and released weights are distributed under [Apache-2.0](LICENSE). The backbone and camera-conditioning implementation build on [Wan2.2](https://github.com/Wan-Video/Wan2.2) and [BiWM](https://github.com/LynnReal-AI/BiWM). Sampling provenance and upstream notices are preserved in [NOTICE](NOTICE).
