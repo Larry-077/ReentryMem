@@ -85,6 +85,8 @@ tags:
 
 Inference checkpoint for **Out of View, Still in Motion: Dynamic Entity Re-entry in Video World Models**.
 
+Inference code: [Larry-077/ReentryMem](https://github.com/Larry-077/ReentryMem).
+
 This bundle contains the merged BF16 DiT and camera-conditioning parameters at step {a.step}.
 Variant: `{a.variant}`. It contains no optimizer state or training dataset.
 The Wan2.2 text encoder, tokenizer and VAE are downloaded separately from the base model.
@@ -95,8 +97,8 @@ model, not an unmodified Diffusers video pipeline. `localized` and `euler` use t
 and 76 future RGB frames, 832x480, 15fps, 50 steps and CFG5. It requires no future RGB or masks.
 
 This bundle uses the `{a.variant}` checkpoint for the paper's virtual-scene re-entry task.
-Multiple entity phrases guide the union of their regions. The attention layout is stored in
-`config.json`. Block-causal models jointly denoise the target segment with that visibility mask.
+This is the complete trained transformer with camera-conditioning parameters.
+Use one entity phrase from the caption with the single-entity model.
 
 Files are verified by `checksums.json`. See `LICENSE` and `NOTICE` for upstream attribution.
 """

@@ -18,6 +18,7 @@ local_cases/
 *.pt
 *.ckpt
 *.mp4
+!/ReentryMem-final.mp4
 *.npz
 *.log
 
