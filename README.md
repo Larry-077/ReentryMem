@@ -4,9 +4,11 @@
 
 ReentryMem improves entity re-entry in camera-controlled video generation. It reads entity regions from text cross-attention and uses them to localize sampling correction. This repository contains inference code, calibrated region settings, and checkpoint export tools.
 
-[![Watch the ReentryMem project video](assets/video-poster.jpg)](ReentryMem-final.mp4?raw=1)
 
-[Watch the full project video](ReentryMem-final.mp4?raw=1) · 69 seconds · 1080p
+
+https://github.com/user-attachments/assets/528da459-6a8b-41cf-b3ea-e98fd0a738e4
+
+
 
 ## Setup
 
