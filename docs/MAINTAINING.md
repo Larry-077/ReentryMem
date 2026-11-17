@@ -62,7 +62,13 @@ git pull --ff-only
 
 Commit the intended source changes and push to `main`. Keep model weights, generated videos, and credentials out of source commits. The original project video is explicitly allowed by `.gitignore`.
 
-`tools/publish_github.py` is for the initial creation of a repository. It uses `GH_TOKEN`, `GITHUB_TOKEN`, or an existing GitHub CLI login, and expects an unused repository name. For the existing `Larry-077/ReentryMem` repository, use `git push`.
+`tools/publish_github.py` uses `GH_TOKEN`, `GITHUB_TOKEN`, or an existing GitHub CLI login. Its default mode creates a new repository. For the existing repository, commit your changes and run:
+
+```bash
+python tools/publish_github.py --owner Larry-077 --update
+```
+
+This uses the same token-based Git authentication as the initial publication. It verifies the configured remote and pushes without force. If your Git credential helper is configured separately, ordinary `git push` also works.
 
 ## Source Layout
 

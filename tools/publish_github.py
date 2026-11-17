@@ -41,6 +41,7 @@ def main():
     parser.add_argument("--name", default="ReentryMem")
     parser.add_argument("--owner", help="Optional organization; defaults to the signed-in user")
     parser.add_argument("--check-auth", action="store_true")
+    parser.add_argument("--update", action="store_true", help="Push to the existing repository")
     args = parser.parse_args()
     token = credential()
     account = api(token, "/user")["login"]
@@ -52,27 +53,37 @@ def main():
     if subprocess.check_output(["git", "status", "--porcelain"], cwd=root).strip():
         raise RuntimeError("Commit the source changes before publishing")
     try:
-        api(token, f"/repos/{owner}/{args.name}")
+        repository = api(token, f"/repos/{owner}/{args.name}")
     except HTTPError as error:
         if error.code != 404:
             raise RuntimeError(f"GitHub repository lookup failed ({error.code})") from None
+        if args.update:
+            raise RuntimeError("The target repository does not exist") from None
     else:
-        raise RuntimeError("Repository already exists; choose a new name or push to it manually")
-    route = "/user/repos" if owner == account else f"/orgs/{owner}/repos"
-    repository = api(
-        token,
-        route,
-        dict(
-            name=args.name,
-            private=False,
-            auto_init=False,
-            description="Out of View, Still in Motion: Dynamic Entity Re-entry in Video World Models",
-            has_wiki=False,
-            has_projects=False,
-        ),
-    )
+        if not args.update:
+            raise RuntimeError("Repository already exists; use --update to push source changes")
+    if not args.update:
+        route = "/user/repos" if owner == account else f"/orgs/{owner}/repos"
+        repository = api(
+            token,
+            route,
+            dict(
+                name=args.name,
+                private=False,
+                auto_init=False,
+                description="Out of View, Still in Motion: Dynamic Entity Re-entry in Video World Models",
+                has_wiki=False,
+                has_projects=False,
+            ),
+        )
     remote = repository["clone_url"]
-    subprocess.run(["git", "remote", "add", "origin", remote], cwd=root, check=True)
+    current = subprocess.run(
+        ["git", "remote", "get-url", "origin"], cwd=root, text=True, capture_output=True
+    )
+    if current.returncode:
+        subprocess.run(["git", "remote", "add", "origin", remote], cwd=root, check=True)
+    elif current.stdout.strip() != remote:
+        raise RuntimeError("The configured origin does not match the target repository")
     with tempfile.TemporaryDirectory(prefix="reentrymem-git-") as folder:
         askpass = Path(folder) / "askpass.py"
         askpass.write_text(
